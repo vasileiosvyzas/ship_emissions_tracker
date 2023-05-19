@@ -10,4 +10,6 @@ COPY ./app /code/app
 COPY ./data /code/data
 COPY ./src /code/src
 
+EXPOSE 80
+
 CMD ["uvicorn", "app.api:app", "--host", "0.0.0.0", "--port", "80"]
