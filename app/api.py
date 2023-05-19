@@ -18,7 +18,7 @@ app = FastAPI(
 def load_artifacts():
     """Read the csv with all the ship data from all the years we have downloaded"""
     global df
-    df = pd.read_csv('/Users/vasileiosvyzas/workspace/interview_exercises/CarbonChain/ship_emissions_tracker/data/interim/ship_emissions_tracker_2018_2021.csv')
+    df = pd.read_csv('data/interim/ship_emissions_tracker_2018_2021.csv')
 
 
 @app.get("/", tags=['General'])
