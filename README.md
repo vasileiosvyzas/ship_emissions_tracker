@@ -17,3 +17,8 @@ The API can be accessed here: https://emissions-tracking-app-gzv69.ondigitalocea
 | /verifier_info    | Gives all the verifier info for all the vessels across all periods    |
 | /technical_efficiency/{ship_id}    | returns the technical efficiency type and value for a specific ship    |
 
+
+## How to run locally
+- At the top level directory run the following command to build the image **docker build -t ship_emissions .**
+- Once the image is built, run the container with **docker run -p 80:80 ship_emissions**
+- The API should be accessible at http://0.0.0.0:80/docs
