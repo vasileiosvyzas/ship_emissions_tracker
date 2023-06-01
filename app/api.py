@@ -1,11 +1,13 @@
 import pandas as pd
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from http import HTTPStatus
 from typing import Dict, List
 from datetime import datetime
 from functools import wraps
-from src.api_decorators import construct_response
+import sys
+sys.path.append("src")
+from api_decorators import construct_response
 
 # Define application
 app = FastAPI(
@@ -63,15 +65,18 @@ def _get_ship_data(request: Request, ship_id: int) -> Dict:
         I thought this way will be easier to convert this dictionary back to a Pandas DataFrame
     """
     
-    data = df[df['IMO Number'] == ship_id].fillna('Missing').to_dict(orient='split')
-    
-    response = {
-        "message": HTTPStatus.OK.phrase,
-        "status-code": HTTPStatus.OK,
-        "data": data,
-    }
-    
-    return response
+    if ship_id in df['IMO Number'].unique():
+        data = df[df['IMO Number'] == ship_id].fillna('Missing').to_dict(orient='split')
+        
+        response = {
+            "message": HTTPStatus.OK.phrase,
+            "status-code": HTTPStatus.OK,
+            "data": data,
+        }
+        
+        return response
+    else:
+        raise HTTPException(status_code=404, detail=f"The argument provided is not correct")
 
 @app.get("/emissions/{ship_type}", tags=['Ship type emissions'])
 @construct_response
@@ -86,15 +91,19 @@ def _emissions_by_ship(request: Request, ship_type: str) -> Dict:
         Dict: Returns a dictionary in the form dict like {‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}
         the columns are the total CO2 emissions, the reporting period and the id of the vessel
     """
-    data = df[df['Ship type'] == ship_type][['Total CO₂ emissions [m tonnes]', 'Reporting Period', 'IMO Number']].to_dict(orient='split')
     
-    response = {
-        "message": HTTPStatus.OK.phrase,
-        "status-code": HTTPStatus.OK,
-        "data": data,
-    }
-    
-    return response
+    if ship_type in df['Ship type'].unique():
+        data = df[df['Ship type'] == ship_type][['Total CO₂ emissions [m tonnes]', 'Reporting Period', 'IMO Number']].to_dict(orient='split')
+        
+        response = {
+            "message": HTTPStatus.OK.phrase,
+            "status-code": HTTPStatus.OK,
+            "data": data,
+        }
+        
+        return response
+    else:
+        raise HTTPException(status_code=404, detail=f"The argument provided is not correct")
 
 
 @app.get("/fuel_consumption/{ship_type}", tags=['Ship type fuel consumption'])
@@ -110,15 +119,19 @@ def _fuel_by_ship(request: Request, ship_type: str) -> Dict:
         Dict: Returns a dictionary in the form dict like {‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}
         the columns are the total CO2 emissions, the reporting period and the id of the vessel
     """
-    data = df[df['Ship type'] == ship_type][['Total fuel consumption [m tonnes]', 'Reporting Period', 'IMO Number']].to_dict(orient='split')
     
-    response = {
-        "message": HTTPStatus.OK.phrase,
-        "status-code": HTTPStatus.OK,
-        "data": data,
-    }
-    
-    return response
+    if ship_type in df['Ship type'].unique():
+        data = df[df['Ship type'] == ship_type][['Total fuel consumption [m tonnes]', 'Reporting Period', 'IMO Number']].to_dict(orient='split')
+        
+        response = {
+            "message": HTTPStatus.OK.phrase,
+            "status-code": HTTPStatus.OK,
+            "data": data,
+        }
+        
+        return response
+    else:
+        raise HTTPException(status_code=404, detail=f"The argument provided is not correct")
 
 
 @app.get("/verifier_info", tags=["Info"])
@@ -153,7 +166,7 @@ def _get_verifier_info(request: Request) -> Dict:
 
 @app.get("/technical_efficiency/{ship_id}", tags=['Technical efficiency of a vessel'])
 @construct_response
-def _fuel_by_ship(request: Request, ship_id: int) -> Dict:
+def _efficiency_by_ship(request: Request, ship_id: int) -> Dict:
     """Function returns the technical efficiency type and value for a specific ship
 
     Args:
@@ -164,13 +177,16 @@ def _fuel_by_ship(request: Request, ship_id: int) -> Dict:
         Dict: Returns a dictionary with the type and gCO₂/t·nm values
     """
     
-    val = df.loc[df[df['IMO Number'] == ship_id].index[0], 'Technical efficiency']
-    data = {'type': val.split()[0], 'gCO₂/t·nm': val.split()[1].removeprefix('(')}
-    
-    response = {
-        "message": HTTPStatus.OK.phrase,
-        "status-code": HTTPStatus.OK,
-        "data": data,
-    }
-    
-    return response
+    if ship_id in df['IMO Number'].unique():
+        val = df.loc[df[df['IMO Number'] == ship_id].index[0], 'Technical efficiency']
+        data = {'type': val.split()[0], 'gCO₂/t·nm': val.split()[1].removeprefix('(')}
+        
+        response = {
+            "message": HTTPStatus.OK.phrase,
+            "status-code": HTTPStatus.OK,
+            "data": data,
+        }
+        
+        return response
+    else:
+        raise HTTPException(status_code=404, detail=f"The argument provided is not correct")
