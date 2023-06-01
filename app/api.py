@@ -1,13 +1,12 @@
-import pandas as pd
-
-from fastapi import FastAPI, Request, HTTPException
-from http import HTTPStatus
-from typing import Dict, List
-from datetime import datetime
-from functools import wraps
 import sys
+from http import HTTPStatus
+from typing import Dict
+
+import pandas as pd
+from fastapi import FastAPI, HTTPException, Request
+
 sys.path.append("src")
-from api_decorators import construct_response
+from api_decorators import construct_response  # noqa: E402
 
 # Define application
 app = FastAPI(
@@ -16,14 +15,15 @@ app = FastAPI(
     version="0.1",
 )
 
+
 @app.on_event("startup")
 def load_artifacts():
     """Read the csv with all the ship data from all the years we have downloaded"""
     global df
-    df = pd.read_csv('data/interim/ship_emissions_tracker_2018_2021.csv')
+    df = pd.read_csv("data/interim/ship_emissions_tracker_2018_2021.csv")
 
 
-@app.get("/", tags=['General'])
+@app.get("/", tags=["General"])
 @construct_response
 def _index(request: Request) -> Dict:
     """Health check."""
@@ -35,7 +35,7 @@ def _index(request: Request) -> Dict:
     return response
 
 
-@app.get("/ships", tags=['Ship Types'])
+@app.get("/ships", tags=["Ship Types"])
 @construct_response
 def _get_ships(request: Request) -> Dict:
     """
@@ -43,18 +43,19 @@ def _get_ships(request: Request) -> Dict:
     Returns:
         List: Returns a list of ship types available in the dataset
     """
-    
-    data = {'ships': list(df['Ship type'].unique())}
-    
+
+    data = {"ships": list(df["Ship type"].unique())}
+
     response = {
         "message": HTTPStatus.OK.phrase,
         "status-code": HTTPStatus.OK,
         "data": data,
     }
-    
+
     return response
 
-@app.get("/ships/{ship_id}", tags=['Ship specific data'])
+
+@app.get("/ships/{ship_id}", tags=["Ship specific data"])
 @construct_response
 def _get_ship_data(request: Request, ship_id: int) -> Dict:
     """
@@ -64,25 +65,26 @@ def _get_ship_data(request: Request, ship_id: int) -> Dict:
         Dict: Returns a dictionary in the form dict like {‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}
         I thought this way will be easier to convert this dictionary back to a Pandas DataFrame
     """
-    
-    if ship_id in df['IMO Number'].unique():
-        data = df[df['IMO Number'] == ship_id].fillna('Missing').to_dict(orient='split')
-        
+
+    if ship_id in df["IMO Number"].unique():
+        data = df[df["IMO Number"] == ship_id].fillna("Missing").to_dict(orient="split")
+
         response = {
             "message": HTTPStatus.OK.phrase,
             "status-code": HTTPStatus.OK,
             "data": data,
         }
-        
+
         return response
     else:
-        raise HTTPException(status_code=404, detail=f"The argument provided is not correct")
+        raise HTTPException(status_code=404, detail="The argument provided is not correct")
 
-@app.get("/emissions/{ship_type}", tags=['Ship type emissions'])
+
+@app.get("/emissions/{ship_type}", tags=["Ship type emissions"])
 @construct_response
 def _emissions_by_ship(request: Request, ship_type: str) -> Dict:
     """
-    This function takes a ship type as parameter and returns all the emissions created by it. 
+    This function takes a ship type as parameter and returns all the emissions created by it.
     Args:
         request (Request): object that gives access to the request method and url
         ship_type (str): the ship type like Bulk carrier, Container ship etc.
@@ -91,22 +93,24 @@ def _emissions_by_ship(request: Request, ship_type: str) -> Dict:
         Dict: Returns a dictionary in the form dict like {‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}
         the columns are the total CO2 emissions, the reporting period and the id of the vessel
     """
-    
-    if ship_type in df['Ship type'].unique():
-        data = df[df['Ship type'] == ship_type][['Total CO₂ emissions [m tonnes]', 'Reporting Period', 'IMO Number']].to_dict(orient='split')
-        
+
+    if ship_type in df["Ship type"].unique():
+        data = df[df["Ship type"] == ship_type][
+            ["Total CO₂ emissions [m tonnes]", "Reporting Period", "IMO Number"]
+        ].to_dict(orient="split")
+
         response = {
             "message": HTTPStatus.OK.phrase,
             "status-code": HTTPStatus.OK,
             "data": data,
         }
-        
+
         return response
     else:
-        raise HTTPException(status_code=404, detail=f"The argument provided is not correct")
+        raise HTTPException(status_code=404, detail="The argument provided is not correct")
 
 
-@app.get("/fuel_consumption/{ship_type}", tags=['Ship type fuel consumption'])
+@app.get("/fuel_consumption/{ship_type}", tags=["Ship type fuel consumption"])
 @construct_response
 def _fuel_by_ship(request: Request, ship_type: str) -> Dict:
     """Function returns the fuel consumption and reporting period for all the vessels belonging to a specific category
@@ -119,19 +123,21 @@ def _fuel_by_ship(request: Request, ship_type: str) -> Dict:
         Dict: Returns a dictionary in the form dict like {‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}
         the columns are the total CO2 emissions, the reporting period and the id of the vessel
     """
-    
-    if ship_type in df['Ship type'].unique():
-        data = df[df['Ship type'] == ship_type][['Total fuel consumption [m tonnes]', 'Reporting Period', 'IMO Number']].to_dict(orient='split')
-        
+
+    if ship_type in df["Ship type"].unique():
+        data = df[df["Ship type"] == ship_type][
+            ["Total fuel consumption [m tonnes]", "Reporting Period", "IMO Number"]
+        ].to_dict(orient="split")
+
         response = {
             "message": HTTPStatus.OK.phrase,
             "status-code": HTTPStatus.OK,
             "data": data,
         }
-        
+
         return response
     else:
-        raise HTTPException(status_code=404, detail=f"The argument provided is not correct")
+        raise HTTPException(status_code=404, detail="The argument provided is not correct")
 
 
 @app.get("/verifier_info", tags=["Info"])
@@ -147,24 +153,26 @@ def _get_verifier_info(request: Request) -> Dict:
         the columns are the verifier name, NAB, address, city, accreditation number and country
     """
     data = df[
-        ['Verifier Name', 
-         'Verifier NAB', 
-         'Verifier Address', 
-         'Verifier City', 
-         'Verifier Accreditation number', 
-         'Verifier Country']
-        ].to_dict(orient='split')
-    
+        [
+            "Verifier Name",
+            "Verifier NAB",
+            "Verifier Address",
+            "Verifier City",
+            "Verifier Accreditation number",
+            "Verifier Country",
+        ]
+    ].to_dict(orient="split")
+
     response = {
         "message": HTTPStatus.OK.phrase,
         "status-code": HTTPStatus.OK,
         "data": data,
     }
-    
+
     return response
 
 
-@app.get("/technical_efficiency/{ship_id}", tags=['Technical efficiency of a vessel'])
+@app.get("/technical_efficiency/{ship_id}", tags=["Technical efficiency of a vessel"])
 @construct_response
 def _efficiency_by_ship(request: Request, ship_id: int) -> Dict:
     """Function returns the technical efficiency type and value for a specific ship
@@ -176,17 +184,17 @@ def _efficiency_by_ship(request: Request, ship_id: int) -> Dict:
     Returns:
         Dict: Returns a dictionary with the type and gCO₂/t·nm values
     """
-    
-    if ship_id in df['IMO Number'].unique():
-        val = df.loc[df[df['IMO Number'] == ship_id].index[0], 'Technical efficiency']
-        data = {'type': val.split()[0], 'gCO₂/t·nm': val.split()[1].removeprefix('(')}
-        
+
+    if ship_id in df["IMO Number"].unique():
+        val = df.loc[df[df["IMO Number"] == ship_id].index[0], "Technical efficiency"]
+        data = {"type": val.split()[0], "gCO₂/t·nm": val.split()[1].removeprefix("(")}
+
         response = {
             "message": HTTPStatus.OK.phrase,
             "status-code": HTTPStatus.OK,
             "data": data,
         }
-        
+
         return response
     else:
-        raise HTTPException(status_code=404, detail=f"The argument provided is not correct")
+        raise HTTPException(status_code=404, detail="The argument provided is not correct")
