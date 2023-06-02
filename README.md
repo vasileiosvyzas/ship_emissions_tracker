@@ -7,7 +7,7 @@ Python version: 3.9
 
 The API can be accessed here: https://emissions-tracking-app-gzv69.ondigitalocean.app/ship-emissions-tracker2
 
-## Available endpoints
+# Available endpoints
 | Endpoints    | Description |
 | -------- | ------- |
 | /ships  | Gets a list of unique ship types Returns: List: Returns a list of ship types available in the dataset    |
@@ -18,7 +18,17 @@ The API can be accessed here: https://emissions-tracking-app-gzv69.ondigitalocea
 | /technical_efficiency/{ship_id}    | returns the technical efficiency type and value for a specific ship    |
 
 
-## How to run locally
-- At the top level directory run the following command to build the image **docker build -t ship_emissions .**
-- Once the image is built, run the container with **docker run -p 80:80 ship_emissions**
-- The API should be accessible at http://0.0.0.0:80/docs
+# How to run locally
+## Virtual environment
+    conda create -n env_name python=3.9
+    conda activate env_name
+    python3 -m pip install -e
+    uvicorn app.api:app --host 0.0.0.0 --port 8000
+
+The API should be accessible at http://0.0.0.0:8000/docs
+
+## If Docker installed locally
+    docker build -t ship_emissions .
+    docker run -p 80:80 ship_emissions
+
+The API should be accessible at http://0.0.0.0:80/docs
