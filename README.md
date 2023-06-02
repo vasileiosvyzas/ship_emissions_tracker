@@ -32,3 +32,7 @@ The API should be accessible at http://0.0.0.0:8000/docs
     docker run -p 80:80 ship_emissions
 
 The API should be accessible at http://0.0.0.0:80/docs
+
+## How to run the tests locally
+    pytest . # run from base directory to run unit tests
+    cd tests && great_expectations checkpoint run ship_emissions_checks # run from base directory to run data tests
