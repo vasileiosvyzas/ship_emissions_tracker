@@ -5,3 +5,7 @@ pydantic==1.10.7
 httpx==0.24.1
 great_expectations==0.16.5
 pytest==7.3.1
+boto3==1.28.34
+awswrangler==3.3.0
+streamlit==1.26.0
+python-dotenv==1.0.0
