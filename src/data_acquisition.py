@@ -62,16 +62,13 @@ def download_new_file(report):
     service = Service()
     options = webdriver.ChromeOptions()
     driver = webdriver.Chrome(service=service, options=options)
-
     driver.get("https://mrv.emsa.europa.eu/#public/emission-report")
-    time.sleep(30)
+    time.sleep(10)
 
     try:
         print(f"===={report}=====")
-        link = WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.LINK_TEXT, report))
-        )
-        time.sleep(10)
+        wait = WebDriverWait(driver, 30)
+        link = wait.until(EC.presence_of_element_located((By.LINK_TEXT, report)))
         print("clicking the link")
         link.click()
         time.sleep(10)
@@ -97,7 +94,11 @@ def compare_versions(current_df, new_df):
     print("== New versions ==")
     print(new_versions)
 
-    ls = []
+    # service = Service()
+    # options = webdriver.ChromeOptions()
+    # driver = webdriver.Chrome(service=service, options=options)
+    # driver.get("https://mrv.emsa.europa.eu/#public/emission-report")
+
     for index, row in new_versions.iterrows():
         current_df.loc[current_df["Reporting Period"] == row["Reporting Period"], "Version"] = row[
             "Version_new"
@@ -110,10 +111,8 @@ def compare_versions(current_df, new_df):
         ]
 
         print(row["File_new"])
-        ls.append(row["File_new"])
-
-    for new_file in ls:
-        download_new_file(new_file)
+        print(f"'{row['File_new']}'")
+        download_new_file(row["File_new"].strip())
 
     print(current_df)
     return current_df
