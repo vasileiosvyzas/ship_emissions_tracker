@@ -62,6 +62,11 @@ def download_new_file(report):
     service = Service()
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
+
+    # Specify the download directory
+    download_directory = "/Users/vasileiosvyzas/workspace/interview_exercises/CarbonChain/ship_emissions_tracker/data/raw"
+    options.add_experimental_option("prefs", {"download.default_directory": download_directory})
+
     driver = webdriver.Chrome(service=service, options=options)
     driver.get("https://mrv.emsa.europa.eu/#public/emission-report")
     time.sleep(10)
