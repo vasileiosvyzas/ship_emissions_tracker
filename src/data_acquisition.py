@@ -19,19 +19,15 @@ load_dotenv(dotenv_path)
 
 ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 SECRET_ACCESS_KEY = os.environ.get("AWD_SECRET_ACCESS_KEY")
-TABLE_NAME = os.environ.get("TABLE_NAME")
-DATABASE_NAME = os.environ.get("DATABASE_NAME")
-RESULT_OUTPUT_LOCATION = os.environ.get("RESULT_OUTPUT_LOCATION")
 
-logger = logging.getLogger(__name__)
-
-logger.setLevel(logging.INFO)
-
-# Create a file handler
-file_handler = logging.FileHandler("ship_emissions_tracker/logs/reports_updater.log")
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+LOG_FORMAT = "%(levelname)s %(asctime)s - %(message)s"
+logging.basicConfig(
+    filename="ship_emissions_tracker/logs/logfile.log",
+    level=logging.DEBUG,
+    format=LOG_FORMAT,
+    filemode="w",
+)
+logger = logging.getLogger()
 
 
 def get_reporting_table_content():
@@ -51,6 +47,7 @@ def get_reporting_table_content():
         logger.info("Visiting the Thetis MRV website")
 
         driver.get("https://mrv.emsa.europa.eu/#public/emission-report")
+        time.sleep(30)
 
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.XPATH, '//*[@id="exportablegrid-1137-body"]'))
@@ -67,7 +64,7 @@ def get_reporting_table_content():
             reports.append(result_dict)
 
         logger.info("Got the table data of the reports")
-        logger.info(reports.head())
+        logger.info(pd.DataFrame(reports).head())
 
         return pd.DataFrame(reports)
 
@@ -121,36 +118,53 @@ def compare_versions_and_download_file(current_df, new_df):
     )
     new_versions = merged_df[merged_df["Version_new"] > merged_df["Version_current"]]
 
-    logger.info("Found the new versions")
+    logger.info("New versions")
     logger.info(new_versions.head())
 
-    download_directory = "/Users/vasileiosvyzas/workspace/interview_exercises/CarbonChain/ship_emissions_tracker/data/raw"
-    for index, row in new_versions.iterrows():
-        logger.info("Updating the current dataframe with the new versions")
-
-        current_df.loc[current_df["Reporting Period"] == row["Reporting Period"], "Version"] = row[
-            "Version_new"
-        ]
-        current_df.loc[
-            current_df["Reporting Period"] == row["Reporting Period"], "Generation Date"
-        ] = row["Generation Date_new"]
-        current_df.loc[current_df["Reporting Period"] == row["Reporting Period"], "File"] = row[
-            "File_new"
-        ]
-
-        download_new_file(report=row["File_new"].strip(), download_directory=download_directory)
-
-        filepath = f"{download_directory}/{row['File_new'].strip()}.xlsx"
-        year = row["Reporting Period"]
-        filename = f"{row['File_new'].strip()}.xlsx"
-
-        upload_file(
-            file_name=filepath,
-            bucket="eu-marv-ship-emissions",
-            object_name=f"raw/{year}/{filename}",
+    if not new_versions.empty:
+        logger.info(
+            f"New version: {new_versions['Version_new']} was found for file: {new_versions['File_new']}"
         )
 
-    return current_df
+        download_directory = "/Users/vasileiosvyzas/workspace/interview_exercises/CarbonChain/ship_emissions_tracker/data/raw"
+        for index, row in new_versions.iterrows():
+            logger.info("Updating the current dataframe with the new versions")
+
+            current_df.loc[
+                current_df["Reporting Period"] == row["Reporting Period"], "Version"
+            ] = row["Version_new"]
+            current_df.loc[
+                current_df["Reporting Period"] == row["Reporting Period"], "Generation Date"
+            ] = row["Generation Date_new"]
+            current_df.loc[current_df["Reporting Period"] == row["Reporting Period"], "File"] = row[
+                "File_new"
+            ]
+
+            download_new_file(report=row["File_new"].strip(), download_directory=download_directory)
+
+            filepath = f"{download_directory}/{row['File_new'].strip()}.xlsx"
+            year = row["Reporting Period"]
+            filename = f"{row['File_new'].strip()}.xlsx"
+
+            upload_file(
+                file_name=filepath,
+                bucket="eu-marv-ship-emissions",
+                object_name=f"raw/{year}/{filename}",
+            )
+
+            delete_file_from_local_directory(filepath=filepath)
+
+            return current_df
+    else:
+        logger.info("There are no new versions of the data in the website")
+
+
+def delete_file_from_local_directory(filepath):
+    if os.path.exists(filepath):
+        logger.info(f"Deleting the file from the local path: {filepath}")
+        os.remove(filepath)
+    else:
+        logger.info("The file does not exist so I couldn't delete it")
 
 
 def fix_column_types(df):
@@ -197,14 +211,18 @@ def upload_file(file_name, bucket, object_name=None):
 
 
 def main():
-    print("Getting the new metadata from the reports table")
+    logger.info("Getting the new metadata from the reports table")
     reports_df_new = get_reporting_table_content()
     reports_df_new = fix_column_types(reports_df_new)
-    print(reports_df_new.head())
+
+    logger.info("New metadata from the website")
+    logger.info(reports_df_new.head())
 
     reports_df_old = pd.read_csv("ship_emissions_tracker/data/raw/reports_metadata.csv")
     reports_df_old = fix_column_types(reports_df_old)
-    print(reports_df_old.head())
+
+    logger.info("Current metadata from local master file")
+    logger.info(reports_df_old.head())
 
     reports_df_updated = compare_versions_and_download_file(
         current_df=reports_df_old, new_df=reports_df_new
