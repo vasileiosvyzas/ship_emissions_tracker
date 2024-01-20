@@ -1,33 +1,68 @@
 import logging
 import os
+import re
 import time
 import traceback
 
 import boto3
 import pandas as pd
 from botocore.exceptions import ClientError
-from dotenv import find_dotenv, load_dotenv
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
-# find .env automagically by walking up directories until it's found
-dotenv_path = find_dotenv()
-load_dotenv(dotenv_path)
-
-ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
-SECRET_ACCESS_KEY = os.environ.get("AWD_SECRET_ACCESS_KEY")
-
 LOG_FORMAT = "%(levelname)s %(asctime)s - %(message)s"
 logging.basicConfig(
-    filename="ship_emissions_tracker/logs/logfile.log",
+    filename="logfile.log",
     level=logging.DEBUG,
     format=LOG_FORMAT,
     filemode="w",
 )
 logger = logging.getLogger()
+
+
+def extract_table_elements(data):
+    # Define regular expressions to extract data
+    reporting_period_pattern = re.compile(r"Reporting Period(\d+)")
+    version_pattern = re.compile(r"Version(\d+)")
+    generation_date_pattern = re.compile(r"Generation Date([\d/]+)")
+    file_pattern = re.compile(r"File(.+)$")
+
+    # Initialize variables to store extracted values
+    reporting_period = None
+    version = None
+    generation_date = None
+    file_data = None
+
+    # Extract data using regular expressions
+    match_reporting_period = reporting_period_pattern.search(data)
+    if match_reporting_period:
+        reporting_period = int(match_reporting_period.group(1))
+
+    match_version = version_pattern.search(data)
+    if match_version:
+        version = int(match_version.group(1))
+
+    match_generation_date = generation_date_pattern.search(data)
+    if match_generation_date:
+        generation_date = match_generation_date.group(1)
+
+    match_file = file_pattern.search(data)
+    if match_file:
+        file_data = match_file.group(1).strip()
+
+    # Create a dictionary with the extracted data
+    data_dict = {
+        "Reporting Period": reporting_period,
+        "Version": version,
+        "Generation Date": generation_date,
+        "File": file_data,
+    }
+
+    # Print the dictionary
+    logger.info(data_dict)
+    return data_dict
 
 
 def get_reporting_table_content():
@@ -38,10 +73,12 @@ def get_reporting_table_content():
     Returns: a Pandas dataframe with the columns: ['Reporting Period', 'Version', 'Generation Date', 'File']. It
     writes the dataframe on disk
     """
-    service = Service()
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
-    driver = webdriver.Chrome(service=service, options=options)
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    driver = webdriver.Remote("http://chrome:4444", options=options)
 
     try:
         logger.info("Visiting the Thetis MRV website")
@@ -55,12 +92,14 @@ def get_reporting_table_content():
 
         tables = driver.find_element(By.XPATH, '//*[@id="exportablegrid-1137-body"]')
         elements = tables.find_elements(By.TAG_NAME, "table")
-
+        logger.info(f"All elements: {elements}")
         reports = []
-        keys = ["Reporting Period", "Version", "Generation Date", "File"]
 
         for table in elements:
-            result_dict = {keys[i]: value for i, value in enumerate(table.text.split("\n")[1:])}
+            logger.info(f"Table: {table.text}")
+            # result_dict = {keys[i]: value for i, value in enumerate(table.text.split("\n")[1:])}
+            result_dict = extract_table_elements(data=table.text)
+            logger.info(result_dict)
             reports.append(result_dict)
 
         logger.info("Got the table data of the reports")
@@ -81,12 +120,14 @@ def download_new_file(report, download_directory):
     It uses Selenium to click on the new link text
 
     """
-    service = Service()
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
     options.add_experimental_option("prefs", {"download.default_directory": download_directory})
 
-    driver = webdriver.Chrome(service=service, options=options)
+    # driver = webdriver.Chrome(service=service, options=options)
+    driver = webdriver.Remote("http://chrome:4444", options=options)
     driver.get("https://mrv.emsa.europa.eu/#public/emission-report")
     time.sleep(10)
 
@@ -96,8 +137,9 @@ def download_new_file(report, download_directory):
         wait = WebDriverWait(driver, 30)
         link = wait.until(EC.presence_of_element_located((By.LINK_TEXT, report)))
         link.click()
+        time.sleep(20)
 
-        time.sleep(10)
+        logger.info("File is downloaded")
 
     except Exception as e:
         logger.error(f"An error occurred while getting the data: {e}")
@@ -126,7 +168,7 @@ def compare_versions_and_download_file(current_df, new_df):
             f"New version: {new_versions['Version_new']} was found for file: {new_versions['File_new']}"
         )
 
-        download_directory = "/Users/vasileiosvyzas/workspace/interview_exercises/CarbonChain/ship_emissions_tracker/data/raw"
+        download_directory = "/tmp"
         for index, row in new_versions.iterrows():
             logger.info("Updating the current dataframe with the new versions")
 
@@ -187,16 +229,13 @@ def upload_file(file_name, bucket, object_name=None):
     :return: True if file was uploaded, else False
     """
 
+    logger.info("Starting the upload to S3")
+
     # If S3 object_name was not specified, use file_name
     if object_name is None:
         object_name = os.path.basename(file_name)
 
-    s3_client = boto3.client(
-        "s3",
-        region_name="us-east-1",
-        aws_access_key_id=ACCESS_KEY_ID,
-        aws_secret_access_key=SECRET_ACCESS_KEY,
-    )
+    s3_client = boto3.client("s3", region_name="us-east-1")
 
     try:
         logger.info(
@@ -218,7 +257,7 @@ def main():
     logger.info("New metadata from the website")
     logger.info(reports_df_new.head())
 
-    reports_df_old = pd.read_csv("ship_emissions_tracker/data/raw/reports_metadata.csv")
+    reports_df_old = pd.read_csv("reports_metadata.csv")
     reports_df_old = fix_column_types(reports_df_old)
 
     logger.info("Current metadata from local master file")
@@ -230,7 +269,7 @@ def main():
 
     logger.info("Got new files and added them to the S3 bucket")
 
-    reports_df_updated.to_csv("ship_emissions_tracker/data/raw/reports_metadata.csv", index=False)
+    reports_df_updated.to_csv("reports_metadata.csv", index=False)
 
 
 if __name__ == "__main__":
