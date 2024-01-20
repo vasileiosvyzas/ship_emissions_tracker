@@ -1,4 +1,4 @@
-# ship_emissions_tracker    [![CI/CD Pipeline](https://github.com/vasileiosvyzas/ship_emissions_tracker/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/vasileiosvyzas/ship_emissions_tracker/actions/workflows/ci-cd.yml)
+# ship_emissions_tracker
 
 A simple REST API to expose endpoints for the CO2 emissions reports from the MRV system
 
