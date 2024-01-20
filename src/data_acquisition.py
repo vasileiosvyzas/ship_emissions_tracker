@@ -22,6 +22,18 @@ logging.basicConfig(
 logger = logging.getLogger()
 
 
+def prepare_selenium_params():
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_experimental_option("prefs", {"download.default_directory": "/tmp"})
+    driver = webdriver.Remote("http://chrome:4444", options=options)
+
+    return driver
+
+
 def extract_table_elements(data):
     # Define regular expressions to extract data
     reporting_period_pattern = re.compile(r"Reporting Period(\d+)")
@@ -73,12 +85,8 @@ def get_reporting_table_content():
     Returns: a Pandas dataframe with the columns: ['Reporting Period', 'Version', 'Generation Date', 'File']. It
     writes the dataframe on disk
     """
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    driver = webdriver.Remote("http://chrome:4444", options=options)
+
+    driver = prepare_selenium_params()
 
     try:
         logger.info("Visiting the Thetis MRV website")
@@ -97,7 +105,6 @@ def get_reporting_table_content():
 
         for table in elements:
             logger.info(f"Table: {table.text}")
-            # result_dict = {keys[i]: value for i, value in enumerate(table.text.split("\n")[1:])}
             result_dict = extract_table_elements(data=table.text)
             logger.info(result_dict)
             reports.append(result_dict)
@@ -114,20 +121,14 @@ def get_reporting_table_content():
         driver.quit()
 
 
-def download_new_file(report, download_directory):
+def download_new_file(report):
     """
     This function gets called to download the new file from the website
     It uses Selenium to click on the new link text
 
     """
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-gpu")
-    options.add_experimental_option("prefs", {"download.default_directory": download_directory})
+    driver = prepare_selenium_params()
 
-    # driver = webdriver.Chrome(service=service, options=options)
-    driver = webdriver.Remote("http://chrome:4444", options=options)
     driver.get("https://mrv.emsa.europa.eu/#public/emission-report")
     time.sleep(10)
 
@@ -182,7 +183,7 @@ def compare_versions_and_download_file(current_df, new_df):
                 "File_new"
             ]
 
-            download_new_file(report=row["File_new"].strip(), download_directory=download_directory)
+            download_new_file(report=row["File_new"].strip())
 
             filepath = f"{download_directory}/{row['File_new'].strip()}.xlsx"
             year = row["Reporting Period"]
